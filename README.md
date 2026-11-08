@@ -10,6 +10,8 @@ Bluetooth (A2DP) audio input, software volume, and I2S output to an external DAC
 firmware/          PlatformIO project (Arduino framework on ESP32)
   src/             application code
   platformio.ini   build environments: esp32_wroom (default), esp32_wrover
+  .clang-format    clang-format style
+  prek.toml        prek git hook config (clang-format + pio check)
 ```
 
 ## Developer setup
@@ -135,3 +137,55 @@ CompileFlags:
 
 Replace `<gcc-version>` with the directory listed by the `ls` command above
 (e.g. `14.2.0`).
+
+### 4. Linting & static analysis
+
+Three tools are configured in `firmware/`:
+
+- **clang-format** (`firmware/.clang-format`) — code formatting (Google-based
+  style, 4-space indentation).
+- **cppcheck + clang-tidy** (`check_tool` in `firmware/platformio.ini`) — static
+  analysis, driven by `pio check`.
+- **prek** (`firmware/prek.toml`) — a git hook framework ([prek], a Rust
+  rewrite of pre-commit) that runs both of the above on every commit.
+
+#### What to install (only needed for linting)
+
+PlatformIO drives cppcheck and clang-tidy but does not install them, and the
+prek hooks call all tools directly from your `PATH`:
+
+```sh
+# Debian/Ubuntu
+sudo apt install clang-format clang-tidy cppcheck
+
+# Fedora
+sudo dnf install clang-tools-extra cppcheck
+
+# macOS
+brew install clang-format clang-tidy cppcheck
+```
+
+Plus **prek** itself if you want the git hooks:
+
+```sh
+brew install prek    # or: pipx install prek, or: cargo install prek --locked
+```
+
+#### Running the linters
+
+```sh
+cd firmware
+pio check --fail-on-defect=medium   # cppcheck + clang-tidy (what the hook runs)
+prek run --all-files                # both hooks: clang-format + pio check
+prek install                        # install the git hooks (once per clone)
+```
+
+- `pio check` lints the project sources (`check_skip_packages = yes` skips
+  library dependencies) and fails on medium-severity defects or higher.
+- `prek run` without `--all-files` checks only the staged files.
+- `prek install` runs both hooks automatically on every commit; the
+  clang-format hook rewrites files in place (`clang-format -i`), so a failed
+  commit usually just needs the reformatted files to be re-staged.
+
+[PlatformIO]: https://platformio.org
+[prek]: https://prek.j178.dev

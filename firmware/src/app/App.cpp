@@ -1,7 +1,5 @@
 #include "App.hpp"
 
-App::~App() = default;
-
 void App::setup() {
     // TODO: construct pipeline, output, inputs, controls
 }

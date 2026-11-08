@@ -2,7 +2,6 @@
 
 class App;
 
-
 class IControl {
 public:
     virtual ~IControl() = default;

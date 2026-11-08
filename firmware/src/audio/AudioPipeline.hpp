@@ -1,14 +1,14 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <cstdio>
-
 
 class AudioPipeline {
 public:
-    bool write(const int16_t* frames, size_t count);  // called from input/BT callback (core-agnostic)
-    size_t read(int16_t* frames, size_t count);      // called from audio task on core 0
-    void setGain(float g);                            // software volume (atomic)
+    auto write(const int16_t* frames, size_t count)
+        -> bool;  // called from input/BT callback (core-agnostic)
+    auto read(int16_t* frames, size_t count) -> size_t;  // called from audio task on core 0
+    void setGain(float gain);                            // software volume (atomic)
     void flush();
-    size_t available() const;
+    auto available() const -> size_t;
 };
