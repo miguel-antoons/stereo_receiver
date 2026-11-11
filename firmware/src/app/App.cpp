@@ -1,9 +1,78 @@
 #include "App.hpp"
 
+#include <esp32-hal-log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/idf_additions.h>
+#include <freertos/projdefs.h>
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <span>
+
+#include "audio/inputs/BluetoothInput.hpp"
+#include "audio/outputs/MA12070POutput.hpp"
+#include "config/Config.hpp"
+
+void App::audioTask_(void* app_ptr) {  // runs on core 0 forever
+    App* app = static_cast<App*>(app_ptr);
+    std::array<int16_t, AUDIO_TASK_BUFFER_SIZE> buf;
+    for (;;) {
+        if (size_t frames_read = app->pipeline_.read(buf); frames_read > 0) {
+            // applyGain(buf, n);
+            app->output_->writeFrames(
+                std::span<const int16_t>{buf}.first(frames_read * CHANNELS)
+            );  // blocking I2S write paces the loop
+        } else {
+            vTaskDelay(1);
+        }
+    }
+}
+
+void App::uiTask_(void* app_ptr) {  // runs on core 1 forever
+    App* app = static_cast<App*>(app_ptr);
+    for (;;) {
+        for (auto& c : app->controls_) c->poll();
+        vTaskDelay(pdMS_TO_TICKS(DELAY_MS_M));
+    }
+}
+
 void App::setup() {
-    // TODO: construct pipeline, output, inputs, controls
+    output_ = std::make_unique<MA12070POutput>();
+    if (!output_->begin()) {
+        log_e("Output device failed to initialize. Restarting ...");
+        vTaskDelay(pdMS_TO_TICKS(DELAY_MS_M));
+        ESP.restart();
+    }
+
+    inputs_.attachSink(&this->pipeline_);
+    auto bt_input = std::make_unique<BluetoothInput>();
+    inputs_.registerInput(std::move(bt_input));
+
+    if (!inputs_.select(AudioSourceType::Bluetooth)) {
+        log_e("Unable to select initial interface.");
+    }
+
+    // controls_.push_back(std::make_unique<RotaryControl>(...));
+    for (auto& c : controls_) c->begin(*this);
+
+    this->pipeline_.setGain(INITAL_GAIN);
 }
 
 void App::run() {
-    // TODO: create FreeRTOS tasks, then idle
+    if (int error = xTaskCreatePinnedToCore(
+            audioTask_, "audio", AUDIO_TASK_STACK_SIZE, this, AUDIO_TASK_PRIORITY, nullptr, 0
+        );
+        error != pdPASS) {
+        log_e("Error with code %d occured during pinning of audio task. Restarting ...", error);
+        ESP.restart();
+    }
+    if (int error = xTaskCreatePinnedToCore(
+            uiTask_, "ui", UI_TASK_STACK_SIZE, this, UI_TASK_PRIORITY, nullptr, 1
+        );
+        error != pdPASS) {
+        log_e("Error with code %d occured during pinning of UI task. Restarting ...", error);
+        ESP.restart();
+    }
 }

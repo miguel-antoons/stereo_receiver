@@ -1,6 +1,6 @@
 #pragma once
 
-class AudioPipeline;
+#include "audio/AudioPipeline.hpp"
 
 enum class AudioSourceType { Bluetooth, Wifi, Optical, Jack, Usb };
 
@@ -13,5 +13,8 @@ public:
     virtual auto name() const -> const char* = 0;
     virtual auto isActive() const -> bool = 0;  // e.g. BT peer connected
     // data callback target set by InputManager:
-    void attachSink(AudioPipeline* pipeline);
+    void attachSink(AudioPipeline* pipeline) { this->sink_ = pipeline; };
+
+protected:
+    AudioPipeline* sink_{nullptr};
 };

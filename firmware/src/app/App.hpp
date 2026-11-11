@@ -10,9 +10,8 @@
 
 class App {
 public:
-    void setup();  // construct pipeline, output, inputs, controls (see below)
-    void run();    // create FreeRTOS tasks, then idle
-    // facade used by controls:
+    void setup();
+    void run();
     void nextInput();
     void setVolume(float);
     void toggleMute();
@@ -24,4 +23,7 @@ private:
     InputManager inputs_;
     std::unique_ptr<IAudioOutput> output_;  // Pcm5102AOutput OR MA12070POutput
     std::vector<std::unique_ptr<IControl>> controls_;
+
+    static void audioTask_(void* app_ptr);
+    static void uiTask_(void* app_ptr);
 };
