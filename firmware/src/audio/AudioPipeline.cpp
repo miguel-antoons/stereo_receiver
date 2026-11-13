@@ -2,6 +2,7 @@
 
 #include <esp32-hal-log.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -61,6 +62,14 @@ auto AudioPipeline::read(std::span<int16_t> frames) -> size_t {
     memcpy(frames.data(), &this->audio_buffer_[tail], first * sizeof(int16_t));
     if (to_read > first) {
         memcpy(frames.data() + first, &this->audio_buffer_[0], (to_read - first) * sizeof(int16_t));
+    }
+
+    const float gain = this->gain_.load(std::memory_order_acquire);
+    if (gain != 1.0F) {
+        for (size_t i = 0; i < to_read; i++) {
+            const float scaled = static_cast<float>(frames.data()[i]) * gain;
+            frames.data()[i] = static_cast<int16_t>(std::clamp(scaled, -32768.0F, 32767.0F));
+        }
     }
 
     this->tail_.store((tail + to_read) % AUDIO_BUFFER_SIZE, std::memory_order_release);
