@@ -3,8 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-constexpr size_t AUDIO_BUFFER_FRAMES = 44100 / 5;  // 200 ms
-constexpr uint8_t CHANNELS = 2;                    // stereo channels
+constexpr uint32_t SAMPLE_RATE_44100 = 44100;
+constexpr size_t AUDIO_BUFFER_FRAMES = SAMPLE_RATE_44100 / 5;  // 200 ms
+constexpr uint8_t CHANNELS = 2;                                // stereo channels
 constexpr size_t AUDIO_BUFFER_SIZE = AUDIO_BUFFER_FRAMES * CHANNELS;
 constexpr uint8_t INTERVAL_DROP_MSG = 10;
 constexpr uint16_t AUDIO_TASK_STACK_SIZE = 8192;
@@ -17,3 +18,6 @@ constexpr uint16_t AUDIO_TASK_BUFFER_FRAMES = 256;
 constexpr uint16_t AUDIO_TASK_BUFFER_SIZE = AUDIO_TASK_BUFFER_FRAMES * CHANNELS;
 
 constexpr float INITAL_GAIN = 0.8F;
+
+constexpr uint16_t DEFAULT_DMA_DESC = 6;
+constexpr uint16_t DEFAULT_DMA_FRAME = 240;

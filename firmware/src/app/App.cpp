@@ -13,6 +13,7 @@
 
 #include "audio/inputs/BluetoothInput.hpp"
 #include "audio/outputs/MA12070POutput.hpp"
+#include "audio/outputs/MAX98357AOutput.hpp"
 #include "config/Config.hpp"
 
 void App::audioTask_(void* app_ptr) {  // runs on core 0 forever
@@ -39,7 +40,7 @@ void App::uiTask_(void* app_ptr) {  // runs on core 1 forever
 }
 
 void App::setup() {
-    output_ = std::make_unique<MA12070POutput>();
+    output_ = std::make_unique<MAX98357AOutput>();
     if (!output_->begin()) {
         log_e("Output device failed to initialize. Restarting ...");
         vTaskDelay(pdMS_TO_TICKS(DELAY_MS_M));
