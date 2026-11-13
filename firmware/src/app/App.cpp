@@ -5,28 +5,18 @@
 #include <freertos/idf_additions.h>
 #include <freertos/projdefs.h>
 
-#include <array>
-#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <span>
 
 #include "audio/inputs/BluetoothInput.hpp"
-#include "audio/outputs/MA12070POutput.hpp"
-#include "audio/outputs/MAX98357AOutput.hpp"
+#include "audio/outputs/I2sStreamOutput.hpp"
 #include "config/Config.hpp"
 
 void App::audioTask_(void* app_ptr) {  // runs on core 0 forever
     App* app = static_cast<App*>(app_ptr);
-    std::array<int16_t, AUDIO_TASK_BUFFER_SIZE> buf;
     for (;;) {
-        if (size_t frames_read = app->pipeline_.read(buf); frames_read > 0) {
-            // applyGain(buf, n);
-            app->output_->writeFrames(
-                std::span<const int16_t>{buf}.first(frames_read * CHANNELS)
-            );  // blocking I2S write paces the loop
-        } else {
-            vTaskDelay(1);
+        if (app->copier_.copy() == 0) {
+            vTaskDelay(1);  // no data available (e.g. BT peer disconnected)
         }
     }
 }
@@ -40,14 +30,20 @@ void App::uiTask_(void* app_ptr) {  // runs on core 1 forever
 }
 
 void App::setup() {
-    output_ = std::make_unique<MAX98357AOutput>();
+    output_ = std::make_unique<I2sStreamOutput>();  // any I2S DAC; volume is software-only
     if (!output_->begin()) {
         log_e("Output device failed to initialize. Restarting ...");
         vTaskDelay(pdMS_TO_TICKS(DELAY_MS_M));
         ESP.restart();
     }
 
-    inputs_.attachSink(&this->pipeline_);
+    this->volume_.setOutput(output_->stream());
+    this->volume_.begin(audio_tools::AudioInfo{SAMPLE_RATE_44100, CHANNELS, BITS_PER_SAMPLE});
+    this->setVolume(INITAL_GAIN);
+
+    inputs_.setOnInputChanged([this](IAudioInput& input) {
+        this->copier_.begin(this->volume_, input.stream());
+    });
     auto bt_input = std::make_unique<BluetoothInput>();
     inputs_.registerInput(std::move(bt_input));
 
@@ -57,8 +53,6 @@ void App::setup() {
 
     // controls_.push_back(std::make_unique<RotaryControl>(...));
     for (auto& c : controls_) c->begin(*this);
-
-    this->pipeline_.setGain(INITAL_GAIN);
 }
 
 void App::run() {
@@ -77,3 +71,18 @@ void App::run() {
         ESP.restart();
     }
 }
+
+void App::setVolume(float volume) { this->volume_.setVolume(volume); }
+
+void App::toggleMute() {
+    if (this->muted_) {
+        this->setVolume(this->volume_before_mute_);
+        this->muted_ = false;
+    } else {
+        this->volume_before_mute_ = this->volume();
+        this->setVolume(0.0F);
+        this->muted_ = true;
+    }
+}
+
+auto App::volume() -> float { return this->volume_.volume(); }

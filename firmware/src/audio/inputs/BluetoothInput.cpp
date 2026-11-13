@@ -1,35 +1,16 @@
 #include "audio/inputs/BluetoothInput.hpp"
 
-#include <cstdint>
-#include <span>
-
 #include "config/Config.hpp"
 
-namespace {
-AudioPipeline* a2dp_pipeline = nullptr;
-
-void a2dp_stream(const uint8_t* data, uint32_t len) {
-    if (a2dp_pipeline != nullptr) {
-        a2dp_pipeline->write(
-            std::span<const int16_t>{reinterpret_cast<const int16_t*>(data), len / sizeof(int16_t)}
-        );
-    }
-}
-}  // namespace
-
 auto BluetoothInput::begin() -> bool {
-    if (this->sink_ == nullptr) {
-        return false;
-    }
-    a2dp_pipeline = this->sink_;
-    this->a2dp_sink_.set_stream_reader(a2dp_stream, false);
-    this->a2dp_sink_.start("BoomBox");
-    this->running_ = true;
+    auto cfg = this->a2dp_.defaultConfig(audio_tools::RX_MODE);
+    cfg.name = PRODUCT_NAME;
+    cfg.wait_for_connection = false;
+    this->running_ = this->a2dp_.begin(cfg);
     return this->running_;
 }
 
 void BluetoothInput::end() {
-    this->a2dp_sink_.stop();
-    a2dp_pipeline = nullptr;
+    this->a2dp_.end();
     this->running_ = false;
 }
