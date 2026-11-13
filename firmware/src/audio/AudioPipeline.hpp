@@ -13,6 +13,7 @@ public:
     auto write(std::span<const int16_t> frames) -> bool;
     auto read(std::span<int16_t> frames) -> size_t;  // called from audio task on core 0
     void setGain(float gain) { this->gain_.store(gain, std::memory_order_release); };
+    auto gain() const -> float { return this->gain_.load(std::memory_order_acquire); }
     void flush() { this->flush_requested_.store(true, std::memory_order_release); };
     auto available() const -> size_t { return this->availableSamples_() / CHANNELS; };
     auto dropped() const -> uint32_t { return dropped_.load(std::memory_order_relaxed); }

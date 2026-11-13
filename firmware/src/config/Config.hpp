@@ -18,6 +18,7 @@ constexpr uint16_t AUDIO_TASK_BUFFER_FRAMES = 256;
 constexpr uint16_t AUDIO_TASK_BUFFER_SIZE = AUDIO_TASK_BUFFER_FRAMES * CHANNELS;
 
 constexpr float INITAL_GAIN = 0.8F;
+constexpr uint8_t AVRCP_VOLUME_MAX = 127;  // AVRCP absolute volume range is 0..127
 
 constexpr uint16_t DEFAULT_DMA_DESC = 6;
 constexpr uint16_t DEFAULT_DMA_FRAME = 240;

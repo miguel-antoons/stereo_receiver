@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "BluetoothA2DPSink.h"
 #include "audio/IAudioInput.hpp"
 
@@ -12,8 +14,15 @@ public:
     auto isActive() const -> bool override { return this->running_; };  // peer connected?
     auto type() const -> AudioSourceType override { return AudioSourceType::Bluetooth; };
     auto name() const -> const char* override { return "Bluetooth"; };
+    void setRemoteVolumeCallback(std::function<void(float)> callback) {
+        this->remote_volume_callback_ = std::move(callback);
+    }
+    void setRemoteVolume(float v01);   // push receiver volume to the phone (AVRCP)
+    void dispatchRemoteVolume(int volume);  // called from the AVRCP volume-change trampoline
 
 private:
     bool running_ = false;
     BluetoothA2DPSink a2dp_sink_;
+    A2DPNoVolumeControl volume_control_;  // lib must not scale: gain is applied in AudioPipeline
+    std::function<void(float)> remote_volume_callback_;
 };

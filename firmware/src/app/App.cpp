@@ -5,6 +5,7 @@
 #include <freertos/idf_additions.h>
 #include <freertos/projdefs.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -21,7 +22,6 @@ void App::audioTask_(void* app_ptr) {  // runs on core 0 forever
     std::array<int16_t, AUDIO_TASK_BUFFER_SIZE> buf;
     for (;;) {
         if (size_t frames_read = app->pipeline_.read(buf); frames_read > 0) {
-            // applyGain(buf, n);
             app->output_->writeFrames(
                 std::span<const int16_t>{buf}.first(frames_read * CHANNELS)
             );  // blocking I2S write paces the loop
@@ -49,6 +49,8 @@ void App::setup() {
 
     inputs_.attachSink(&this->pipeline_);
     auto bt_input = std::make_unique<BluetoothInput>();
+    bt_input->setRemoteVolumeCallback([this](float v01) { this->applyVolume_(v01, false); });
+    this->bt_input_ = bt_input.get();
     inputs_.registerInput(std::move(bt_input));
 
     if (!inputs_.select(AudioSourceType::Bluetooth)) {
@@ -75,5 +77,21 @@ void App::run() {
         error != pdPASS) {
         log_e("Error with code %d occured during pinning of UI task. Restarting ...", error);
         ESP.restart();
+    }
+}
+
+void App::setVolume(float v01) { this->applyVolume_(v01, true); }
+
+auto App::volume() const -> float { return this->volume_.load(std::memory_order_acquire); }
+
+void App::applyVolume_(float v01, bool notify_remote) {
+    const float v = std::clamp(v01, 0.0F, 1.0F);
+    this->volume_.store(v, std::memory_order_release);
+    this->pipeline_.setGain(v);
+    if (this->output_ != nullptr) {
+        this->output_->setVolume(v);
+    }
+    if (notify_remote && this->bt_input_ != nullptr) {
+        this->bt_input_->setRemoteVolume(v);
     }
 }
